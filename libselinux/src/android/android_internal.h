@@ -11,12 +11,13 @@ extern "C" {
 #endif
 
 // Context files (file_contexts, service_contexts, etc) may be spread over
-// multiple partitions: system, apex, system_ext, product, vendor and/or odm.
-#define MAX_CONTEXT_PATHS 6
+// multiple partitions: system, system_ext, product, vendor and/or odm.
+#define MAX_CONTEXT_PATHS 5
 // The maximum number of alternatives for a file on one partition.
 #define MAX_ALT_CONTEXT_PATHS 2
 typedef struct path_alts {
 	const char *paths[MAX_CONTEXT_PATHS][MAX_ALT_CONTEXT_PATHS];
+	const char *partitions[MAX_CONTEXT_PATHS];
 } path_alts_t;
 
 /* Within each set of files, adds the first file that is accessible to `paths`.
@@ -24,6 +25,14 @@ typedef struct path_alts {
 size_t find_existing_files(
 	const path_alts_t *path_sets,
 	const char *paths[MAX_CONTEXT_PATHS]);
+
+/* Within each set of files, adds the first file that is accessible to `paths`.
+ * Returns the number of accessible files. Also returns the partitions where
+ * the files exist. */
+size_t find_existing_files_with_partitions(
+	const path_alts_t *path_sets,
+	const char *paths[MAX_CONTEXT_PATHS],
+	const char *partitions[MAX_CONTEXT_PATHS]);
 
 /* Converts an array of file paths into an array of options for selabel_open.
  * opts must be at least as large as paths. */
@@ -91,6 +100,25 @@ int set_range_from_level(context_t ctx, enum levelFrom levelFrom, uid_t userid, 
 /* Similar to seapp_context_reload, but does not implicitly load the default
  * context files. It should only be used for unit tests. */
 int seapp_context_reload_internal(const path_alts_t *context_paths);
+
+#define SEINFO_BUFSIZ 256
+/* A parsed seinfo */
+struct parsed_seinfo {
+	char base[SEINFO_BUFSIZ];
+#define IS_PRIV_APP             (1 << 0)
+#define IS_FROM_RUN_AS          (1 << 1)
+#define IS_EPHEMERAL_APP        (1 << 2)
+#define IS_ISOLATED_COMPUTE_APP (1 << 3)
+#define IS_SDK_SANDBOX_AUDIT    (1 << 4)
+#define IS_SDK_SANDBOX_NEXT     (1 << 5)
+	int32_t is;
+	bool isPreinstalledApp;
+	char partition[SEINFO_BUFSIZ];
+	int32_t targetSdkVersion;
+};
+
+/* Parses an seinfo string. Returns -1 if an error occurred. */
+int parse_seinfo(const char* seinfo, struct parsed_seinfo* info);
 #ifdef __cplusplus
 }
 #endif
